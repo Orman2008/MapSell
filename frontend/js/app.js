@@ -6,6 +6,10 @@ if (tg) {
 }
 
 
+/* =========================================
+   MAP
+========================================= */
+
 const map = L.map('map').setView(
   [41.2995, 69.2401],
   12
@@ -21,19 +25,27 @@ L.tileLayer(
 ).addTo(map);
 
 
+/* =========================================
+   API / USER
+========================================= */
+
 const API =
   window.APP_CONFIG.API_BASE_URL.replace(/\/$/, '');
 
 
 const user =
-  tg?.initDataUnsafe?.user ||
-  {
+  tg?.initDataUnsafe?.user || {
     id: 0,
     first_name: 'Web User'
   };
 
 
+/* =========================================
+   STATE
+========================================= */
+
 let markers = new Map();
+
 let places = new Map();
 
 let selectedPlace = null;
@@ -45,10 +57,9 @@ let userMarker = null;
 let routeLine = null;
 
 
-/* -----------------------------------------
+/* =========================================
    HELPERS
------------------------------------------ */
-
+========================================= */
 
 function setStatus(text) {
 
@@ -61,18 +72,18 @@ function setStatus(text) {
 }
 
 
-function escapeHtml(s) {
+function escapeHtml(value) {
 
-  return String(s ?? '')
+  return String(value ?? '')
     .replace(
       /[&<>"']/g,
-      c => ({
+      char => ({
         '&': '&amp;',
         '<': '&lt;',
         '>': '&gt;',
         '"': '&quot;',
         "'": '&#039;'
-      }[c])
+      }[char])
     );
 }
 
@@ -96,8 +107,15 @@ function distanceKm(
 
   const a =
     Math.sin(dLat / 2) ** 2 +
-    Math.cos(lat1 * Math.PI / 180) *
-    Math.cos(lat2 * Math.PI / 180) *
+
+    Math.cos(
+      lat1 * Math.PI / 180
+    ) *
+
+    Math.cos(
+      lat2 * Math.PI / 180
+    ) *
+
     Math.sin(dLon / 2) ** 2;
 
   return (
@@ -114,10 +132,14 @@ function distanceKm(
 function formatDistance(km) {
 
   if (km < 1) {
-    return `${Math.round(km * 1000)} м`;
+
+    return (
+      Math.round(km * 1000) +
+      ' м'
+    );
   }
 
-  return `${km.toFixed(1)} км`;
+  return km.toFixed(1) + ' км';
 }
 
 
@@ -127,7 +149,11 @@ function formatTime(seconds) {
     Math.round(seconds / 60);
 
   if (minutes < 60) {
-    return `${minutes} мин`;
+
+    return (
+      minutes +
+      ' мин'
+    );
   }
 
   const hours =
@@ -136,27 +162,42 @@ function formatTime(seconds) {
   const mins =
     minutes % 60;
 
-  return mins
-    ? `${hours} ч ${mins} мин`
-    : `${hours} ч`;
+  if (mins) {
+
+    return (
+      hours +
+      ' ч ' +
+      mins +
+      ' мин'
+    );
+  }
+
+  return (
+    hours +
+    ' ч'
+  );
 }
 
 
-/* -----------------------------------------
-   LOCATION
------------------------------------------ */
-
+/* =========================================
+   USER LOCATION
+========================================= */
 
 function locateUser() {
 
   if (!navigator.geolocation) {
 
     alert(
-      'Ваш браузер не поддерживает геолокацию'
+      'Ваш браузер не поддерживает геолокацию.'
     );
 
     return;
   }
+
+
+  setStatus(
+    '📍 Определяю ваше местоположение...'
+  );
 
 
   navigator.geolocation.getCurrentPosition(
@@ -164,13 +205,20 @@ function locateUser() {
     position => {
 
       currentPosition = {
-        lat: position.coords.latitude,
-        lon: position.coords.longitude
+
+        lat:
+          position.coords.latitude,
+
+        lon:
+          position.coords.longitude
       };
 
 
       if (userMarker) {
-        map.removeLayer(userMarker);
+
+        map.removeLayer(
+          userMarker
+        );
       }
 
 
@@ -182,8 +230,13 @@ function locateUser() {
           ],
           {
             radius: 9,
+
             color: '#ffffff',
+
             weight: 3,
+
+            fillColor: '#1877f2',
+
             fillOpacity: 1
           }
         )
@@ -201,62 +254,90 @@ function locateUser() {
         15
       );
 
-    },
 
-    error => {
-
-      console.log(error);
-
-      alert(
-        'Не удалось определить местоположение. Разреши доступ к геолокации.'
+      setStatus(
+        '📍 Местоположение определено'
       );
     },
 
+
+    error => {
+
+      console.error(
+        'Geolocation error:',
+        error
+      );
+
+
+      setStatus(
+        '❌ Не удалось определить местоположение'
+      );
+
+
+      alert(
+        'Не удалось определить местоположение. Разрешите доступ к геолокации в браузере.'
+      );
+    },
+
+
     {
       enableHighAccuracy: true,
-      timeout: 10000,
+
+      timeout: 15000,
+
       maximumAge: 30000
     }
   );
 }
 
 
-/* -----------------------------------------
-   ICONS
------------------------------------------ */
-
+/* =========================================
+   MARKER ICONS
+========================================= */
 
 function createIcon(place) {
 
-  const icon =
+  let icon =
     place.icon || '📍';
 
 
   return L.divIcon({
 
-    className: 'custom-marker',
+    className:
+      'custom-marker',
 
     html: `
       <div class="marker-icon">
-        ${icon}
+        ${escapeHtml(icon)}
       </div>
     `,
 
-    iconSize: [40, 40],
+    iconSize: [
+      40,
+      40
+    ],
 
-    iconAnchor: [20, 20],
+    iconAnchor: [
+      20,
+      20
+    ],
 
-    popupAnchor: [0, -20]
+    popupAnchor: [
+      0,
+      -20
+    ]
   });
 }
 
 
-/* -----------------------------------------
-   POPUP
------------------------------------------ */
+/* =========================================
+   PLACE POPUP
+========================================= */
 
-
-function popup(place, visit) {
+function popup(
+  place,
+  visit
+) {
 
   const sold =
     visit?.sold === true;
@@ -266,7 +347,9 @@ function popup(place, visit) {
     visit?.note
       ? `
         <div class="note-preview">
-          📝 ${escapeHtml(visit.note)}
+          📝 ${escapeHtml(
+            visit.note
+          )}
         </div>
       `
       : '';
@@ -278,35 +361,45 @@ function popup(place, visit) {
 
       <h3>
         ${escapeHtml(
-          place.name || 'Место'
+          place.name ||
+          'Место'
         )}
       </h3>
 
       <p>
         ${escapeHtml(
-          place.address || ''
+          place.address ||
+          ''
         )}
       </p>
 
       <p>
-        ${sold
-          ? '🟢 Продано'
-          : '🔴 Не продано'}
+        ${
+          sold
+            ? '🟢 Продано'
+            : '🔴 Не продано'
+        }
       </p>
+
+      ${
+        visit?.visited
+          ? '<p>🟢 Вы были здесь</p>'
+          : ''
+      }
 
       ${note}
 
       <div class="actions">
 
         <button
-          onclick="openPlace('${place.id}')"
+          onclick="openPlace('${escapeHtml(place.id)}')"
         >
           Открыть
         </button>
 
         <button
           class="secondary"
-          onclick="buildRoute('${place.id}')"
+          onclick="buildRoute('${escapeHtml(place.id)}')"
         >
           🧭 Маршрут
         </button>
@@ -314,75 +407,130 @@ function popup(place, visit) {
       </div>
 
     </div>
+
   `;
 }
 
 
-/* -----------------------------------------
+/* =========================================
+   GET VISIT
+========================================= */
+
+async function getVisit(
+  placeId
+) {
+
+  try {
+
+    const response =
+      await fetch(
+        `${API}/api/visits/${encodeURIComponent(placeId)}?user_id=${encodeURIComponent(user.id)}`
+      );
+
+
+    if (!response.ok) {
+
+      return null;
+    }
+
+
+    return await response.json();
+
+  } catch (error) {
+
+    console.error(
+      'getVisit error:',
+      error
+    );
+
+    return null;
+  }
+}
+
+
+/* =========================================
    OPEN PLACE
------------------------------------------ */
+========================================= */
 
-
-async function openPlace(id) {
+async function openPlace(
+  id
+) {
 
   const place =
-    places.get(String(id));
+    places.get(
+      String(id)
+    );
 
-  if (!place) return;
+
+  if (!place) {
+
+    return;
+  }
 
 
-  selectedPlace = place;
+  selectedPlace =
+    place;
 
 
   const visit =
-    await getVisit(place.id);
+    await getVisit(
+      place.id
+    );
 
 
-  document.getElementById(
-    'modalTitle'
-  ).textContent =
-    place.name;
+  const title =
+    document.getElementById(
+      'modalTitle'
+    );
 
 
-  document.getElementById(
-    'modalAddress'
-  ).textContent =
-    place.address || '';
+  const address =
+    document.getElementById(
+      'modalAddress'
+    );
 
 
-  document.getElementById(
-    'note'
-  ).value =
-    visit?.note || '';
+  const note =
+    document.getElementById(
+      'note'
+    );
+
+
+  if (title) {
+
+    title.textContent =
+      place.name ||
+      'Место';
+  }
+
+
+  if (address) {
+
+    address.textContent =
+      place.address ||
+      '';
+  }
+
+
+  if (note) {
+
+    note.value =
+      visit?.note ||
+      '';
+  }
 
 
   document
     .getElementById('modal')
-    .classList.remove('hidden');
-}
-
-
-/* -----------------------------------------
-   VISITS
------------------------------------------ */
-
-
-async function getVisit(placeId) {
-
-  const r =
-    await fetch(
-      `${API}/api/visits/${encodeURIComponent(placeId)}?user_id=${encodeURIComponent(user.id)}`
+    .classList.remove(
+      'hidden'
     );
-
-
-  if (!r.ok) {
-    return null;
-  }
-
-
-  return r.json();
 }
 
+
+/* =========================================
+   SAVE VISIT
+========================================= */
 
 async function saveVisit(
   place,
@@ -390,7 +538,10 @@ async function saveVisit(
   note
 ) {
 
-  if (!place) return;
+  if (!place) {
+
+    return null;
+  }
 
 
   const payload = {
@@ -399,96 +550,144 @@ async function saveVisit(
       String(place.id),
 
     name:
-      place.name,
+      place.name ||
+      'Место',
 
     address:
-      place.address || '',
+      place.address ||
+      '',
 
     lat:
-      place.lat,
+      Number(place.lat),
 
     lon:
-      place.lon,
+      Number(place.lon),
 
     visited:
       true,
 
     sold:
-      sold,
+      Boolean(sold),
 
     note:
-      note || null,
+      note ||
+      null,
 
     user_id:
       String(user.id),
 
     user_name:
-      user.first_name || 'User'
+      user.first_name ||
+      'User'
   };
 
 
-  const r =
-    await fetch(
-      `${API}/api/visits`,
-      {
-        method: 'POST',
+  try {
 
-        headers: {
-          'Content-Type':
-            'application/json'
-        },
+    const response =
+      await fetch(
+        `${API}/api/visits`,
+        {
+          method: 'POST',
 
-        body:
-          JSON.stringify(payload)
-      }
+          headers: {
+            'Content-Type':
+              'application/json'
+          },
+
+          body:
+            JSON.stringify(
+              payload
+            )
+        }
+      );
+
+
+    if (!response.ok) {
+
+      const text =
+        await response.text();
+
+      console.error(
+        'Save visit error:',
+        response.status,
+        text
+      );
+
+
+      alert(
+        'Не удалось сохранить место.'
+      );
+
+      return null;
+    }
+
+
+    const visit =
+      await response.json();
+
+
+    const marker =
+      markers.get(
+        String(place.id)
+      );
+
+
+    if (marker) {
+
+      marker.setPopupContent(
+        popup(
+          place,
+          visit
+        )
+      );
+    }
+
+
+    return visit;
+
+  } catch (error) {
+
+    console.error(
+      'Save visit error:',
+      error
     );
 
-
-  if (!r.ok) {
 
     alert(
-      'Не удалось сохранить'
-    );
-
-    return;
-  }
-
-
-  const v =
-    await r.json();
-
-
-  const marker =
-    markers.get(
-      String(place.id)
+      'Ошибка соединения с сервером.'
     );
 
 
-  if (marker) {
-
-    marker
-      .setPopupContent(
-        popup(place, v)
-      );
+    return null;
   }
 }
 
 
-/* -----------------------------------------
+/* =========================================
    SEARCH
------------------------------------------ */
-
+========================================= */
 
 async function searchPlaces() {
 
+  const input =
+    document.getElementById(
+      'search'
+    );
+
+
   const q =
-    document
-      .getElementById('search')
-      .value
-      .trim();
+    input.value.trim();
 
 
-  if (!q) return;
+  if (!q) {
+
+    setStatus(
+      'Введите что-нибудь для поиска'
+    );
+
+    return;
+  }
 
 
   setStatus(
@@ -498,13 +697,44 @@ async function searchPlaces() {
 
   try {
 
-    const r =
+    const lat =
+      currentPosition?.lat ||
+      41.2995;
+
+
+    const lon =
+      currentPosition?.lon ||
+      69.2401;
+
+
+    const url =
+      `${API}/api/places/search?q=${encodeURIComponent(q)}&lat=${lat}&lon=${lon}`;
+
+
+    console.log(
+      'Search:',
+      url
+    );
+
+
+    const response =
       await fetch(
-        `${API}/api/places/search?q=${encodeURIComponent(q)}&lat=${currentPosition?.lat || 41.2995}&lon=${currentPosition?.lon || 69.2401}`
+        url
       );
 
 
-    if (!r.ok) {
+    if (!response.ok) {
+
+      const errorText =
+        await response.text();
+
+
+      console.error(
+        'Search API error:',
+        response.status,
+        errorText
+      );
+
 
       setStatus(
         '❌ Ошибка поиска'
@@ -515,20 +745,19 @@ async function searchPlaces() {
 
 
     const data =
-      await r.json();
+      await response.json();
+
+
+    console.log(
+      'Search results:',
+      data
+    );
 
 
     clearMarkers();
 
 
-    if (!data.length) {
-
-      setStatus(
-        'Ничего не найдено'
-      );
-
-      return;
-    }
+    places.clear();
 
 
     const list =
@@ -540,41 +769,89 @@ async function searchPlaces() {
     list.innerHTML = '';
 
 
-    for (const p of data) {
+    if (
+      !Array.isArray(data) ||
+      data.length === 0
+    ) {
 
-      places.set(
-        String(p.id),
-        p
+      setStatus(
+        'Ничего не найдено'
       );
 
 
+      document
+        .getElementById(
+          'resultsPanel'
+        )
+        .classList.add(
+          'hidden'
+        );
+
+
+      return;
+    }
+
+
+    /* -------------------------------------
+       RESULTS
+    ------------------------------------- */
+
+    for (
+      const place
+      of data
+    ) {
+
+      places.set(
+        String(place.id),
+        place
+      );
+
+
+      /* marker */
+
       const marker =
         L.marker(
-          [p.lat, p.lon],
+          [
+            Number(place.lat),
+            Number(place.lon)
+          ],
           {
             icon:
-              createIcon(p)
+              createIcon(
+                place
+              )
           }
         )
         .addTo(map);
 
 
       markers.set(
-        String(p.id),
+        String(place.id),
         marker
       );
 
 
+      /* visit */
+
       const visit =
-        await getVisit(p.id);
+        await getVisit(
+          place.id
+        );
 
 
       marker.bindPopup(
-        popup(p, visit)
+        popup(
+          place,
+          visit
+        )
       );
 
 
-      let distance = '—';
+      /* distance */
+
+      let distanceText =
+        '—';
+
 
       if (currentPosition) {
 
@@ -582,14 +859,19 @@ async function searchPlaces() {
           distanceKm(
             currentPosition.lat,
             currentPosition.lon,
-            p.lat,
-            p.lon
+            Number(place.lat),
+            Number(place.lon)
           );
 
-        distance =
-          formatDistance(km);
+
+        distanceText =
+          formatDistance(
+            km
+          );
       }
 
+
+      /* result item */
 
       const item =
         document.createElement(
@@ -604,45 +886,82 @@ async function searchPlaces() {
       item.innerHTML = `
 
         <div class="result-icon">
-          ${p.icon || '📍'}
+          ${escapeHtml(
+            place.icon ||
+            '📍'
+          )}
         </div>
 
         <div class="result-content">
 
           <b>
-            ${escapeHtml(p.name)}
+            ${escapeHtml(
+              place.name ||
+              'Без названия'
+            )}
           </b>
 
           <span>
             ${escapeHtml(
-              p.address || ''
+              place.address ||
+              'Адрес не указан'
             )}
           </span>
 
           <small>
-            📍 ${distance}
+            📍 ${distanceText}
           </small>
 
         </div>
 
-        <button>
+        <button
+          type="button"
+          class="result-open"
+        >
           →
         </button>
+
       `;
 
 
-      item.onclick = () => {
+      item.addEventListener(
+        'click',
+        () => {
 
-        map.setView(
-          [p.lat, p.lon],
-          17
-        );
+          map.setView(
+            [
+              Number(place.lat),
+              Number(place.lon)
+            ],
+            17
+          );
 
-        marker.openPopup();
-      };
+
+          marker.openPopup();
+        }
+      );
 
 
-      list.appendChild(item);
+      list.appendChild(
+        item
+      );
+    }
+
+
+    /* -------------------------------------
+       SHOW RESULTS
+    ------------------------------------- */
+
+    const title =
+      document.getElementById(
+        'resultsTitle'
+      );
+
+
+    if (title) {
+
+      title.textContent =
+        `Найдено: ${data.length}`;
     }
 
 
@@ -650,29 +969,46 @@ async function searchPlaces() {
       .getElementById(
         'resultsPanel'
       )
-      .classList.remove('hidden');
-
-
-    const group =
-      L.featureGroup(
-        [...markers.values()]
+      .classList.remove(
+        'hidden'
       );
 
 
-    map.fitBounds(
-      group
-        .getBounds()
-        .pad(0.2)
-    );
+    /* -------------------------------------
+       FIT MAP
+    ------------------------------------- */
+
+    if (
+      markers.size > 0
+    ) {
+
+      const group =
+        L.featureGroup(
+          [
+            ...markers.values()
+          ]
+        );
+
+
+      map.fitBounds(
+        group
+          .getBounds()
+          .pad(0.2)
+      );
+    }
 
 
     setStatus(
       `Найдено: ${data.length}`
     );
 
-  } catch (e) {
+  } catch (error) {
 
-    console.error(e);
+    console.error(
+      'Search error:',
+      error
+    );
+
 
     setStatus(
       '❌ Ошибка соединения'
@@ -681,19 +1017,33 @@ async function searchPlaces() {
 }
 
 
-/* -----------------------------------------
+/* =========================================
    ROUTING
------------------------------------------ */
+========================================= */
 
-
-async function buildRoute(id) {
+async function buildRoute(
+  id
+) {
 
   const place =
-    places.get(String(id));
+    places.get(
+      String(id)
+    );
 
 
-  if (!place) return;
+  if (!place) {
 
+    return;
+  }
+
+
+  selectedPlace =
+    place;
+
+
+  /* ---------------------------------------
+     GET LOCATION
+  --------------------------------------- */
 
   if (!currentPosition) {
 
@@ -701,8 +1051,9 @@ async function buildRoute(id) {
 
 
     alert(
-      'Сначала разреши доступ к местоположению.'
+      'Сначала разрешите доступ к вашему местоположению.'
     );
+
 
     return;
   }
@@ -716,82 +1067,188 @@ async function buildRoute(id) {
     `${place.lon},${place.lat}`;
 
 
+  setStatus(
+    '🧭 Строю маршрут...'
+  );
+
+
   try {
 
     /*
-      Пеший маршрут
+      ВАЖНО:
+
+      OSRM public server нормально работает
+      с driving.
+
+      Для пешего маршрута используем
+      отдельный Valhalla public API.
     */
 
-    const walkUrl =
-      `https://router.project-osrm.org/route/v1/foot/${start};${end}?overview=full&geometries=geojson`;
-
-
-    /*
-      Машина
-    */
 
     const carUrl =
       `https://router.project-osrm.org/route/v1/driving/${start};${end}?overview=full&geometries=geojson`;
 
 
+    const walkUrl =
+      `https://valhalla1.openstreetmap.de/route?json=${encodeURIComponent(
+        JSON.stringify({
+
+          locations: [
+
+            {
+              lat:
+                currentPosition.lat,
+
+              lon:
+                currentPosition.lon
+            },
+
+            {
+              lat:
+                Number(place.lat),
+
+              lon:
+                Number(place.lon)
+            }
+
+          ],
+
+          costing:
+            'pedestrian',
+
+          units:
+            'kilometers',
+
+          directions_options: {
+            units:
+              'kilometers'
+          }
+        })
+      )}`;
+
+
     const [
-      walkResponse,
-      carResponse
+      carResponse,
+      walkResponse
     ] =
       await Promise.all([
-        fetch(walkUrl),
-        fetch(carUrl)
+        fetch(carUrl),
+        fetch(walkUrl)
       ]);
 
 
-    const walk =
-      await walkResponse.json();
+    let car = null;
+
+    let walk = null;
 
 
-    const car =
-      await carResponse.json();
+    /* -------------------------------------
+       CAR
+    ------------------------------------- */
+
+    if (
+      carResponse.ok
+    ) {
+
+      car =
+        await carResponse.json();
+    }
+
+
+    /* -------------------------------------
+       WALK
+    ------------------------------------- */
+
+    if (
+      walkResponse.ok
+    ) {
+
+      walk =
+        await walkResponse.json();
+    }
+
+
+    /* -------------------------------------
+       ROUTE DATA
+    ------------------------------------- */
+
+    let geometry =
+      null;
 
 
     if (
-      walk.code !== 'Ok' &&
-      car.code !== 'Ok'
+      walk?.trip?.legs?.length
     ) {
 
-      alert(
-        'Маршрут не найден'
-      );
-
-      return;
+      geometry =
+        walk.trip
+          .legs[0]
+          .shape;
     }
 
+
+    /*
+      Valhalla shape может быть encoded polyline.
+      Если пеший маршрут не получился,
+      показываем автомобильный.
+    */
+
+
+    if (
+      !geometry &&
+      car?.routes?.length
+    ) {
+
+      geometry =
+        car.routes[0]
+          .geometry;
+    }
+
+
+    /* -------------------------------------
+       DRAW ROUTE
+    ------------------------------------- */
 
     if (routeLine) {
 
       map.removeLayer(
         routeLine
       );
+
+      routeLine =
+        null;
     }
 
 
-    const route =
-      walk.code === 'Ok'
-        ? walk.routes[0]
-        : car.routes[0];
+    if (
+      car?.routes?.length
+    ) {
+
+      const route =
+        car.routes[0];
 
 
-    routeLine =
-      L.geoJSON(
-        route.geometry
-      ).addTo(map);
+      routeLine =
+        L.geoJSON(
+          route.geometry
+        ).addTo(map);
 
 
-    map.fitBounds(
-      routeLine.getBounds(),
-      {
-        padding: [40, 40]
-      }
-    );
+      map.fitBounds(
+        routeLine.getBounds(),
+        {
+          padding: [
+            40,
+            40
+          ]
+        }
+      );
+    }
 
+
+    /* -------------------------------------
+       ROUTE PANEL
+    ------------------------------------- */
 
     document.getElementById(
       'routeTitle'
@@ -799,13 +1256,23 @@ async function buildRoute(id) {
       `🧭 ${place.name}`;
 
 
-    if (walk.code === 'Ok') {
+    /* WALK */
+
+    if (
+      walk?.trip
+    ) {
+
+      const summary =
+        walk.trip.summary;
+
 
       document.getElementById(
         'walkDistance'
       ).textContent =
         formatDistance(
-          walk.routes[0].distance / 1000
+          Number(
+            summary.length
+          )
         );
 
 
@@ -813,18 +1280,39 @@ async function buildRoute(id) {
         'walkTime'
       ).textContent =
         formatTime(
-          walk.routes[0].duration
+          Number(
+            summary.time
+          )
         );
     }
 
+    else {
 
-    if (car.code === 'Ok') {
+      document.getElementById(
+        'walkDistance'
+      ).textContent =
+        '—';
+
+
+      document.getElementById(
+        'walkTime'
+      ).textContent =
+        '—';
+    }
+
+
+    /* CAR */
+
+    if (
+      car?.routes?.length
+    ) {
 
       document.getElementById(
         'carDistance'
       ).textContent =
         formatDistance(
-          car.routes[0].distance / 1000
+          car.routes[0]
+            .distance / 1000
         );
 
 
@@ -832,8 +1320,23 @@ async function buildRoute(id) {
         'carTime'
       ).textContent =
         formatTime(
-          car.routes[0].duration
+          car.routes[0]
+            .duration
         );
+    }
+
+    else {
+
+      document.getElementById(
+        'carDistance'
+      ).textContent =
+        '—';
+
+
+      document.getElementById(
+        'carTime'
+      ).textContent =
+        '—';
     }
 
 
@@ -841,178 +1344,238 @@ async function buildRoute(id) {
       .getElementById(
         'routePanel'
       )
-      .classList.remove('hidden');
+      .classList.remove(
+        'hidden'
+      );
 
 
     document
       .getElementById(
         'modal'
       )
-      .classList.add('hidden');
+      .classList.add(
+        'hidden'
+      );
 
 
-  } catch (e) {
+    setStatus(
+      '🧭 Маршрут построен'
+    );
 
-    console.error(e);
+  } catch (error) {
+
+    console.error(
+      'Routing error:',
+      error
+    );
+
+
+    setStatus(
+      '❌ Не удалось построить маршрут'
+    );
+
 
     alert(
-      'Не удалось построить маршрут'
+      'Не удалось построить маршрут. Попробуйте ещё раз.'
     );
   }
 }
 
 
-/* -----------------------------------------
+/* =========================================
    MY PLACES
------------------------------------------ */
-
+========================================= */
 
 async function loadMyPlaces() {
 
-  const r =
-    await fetch(
-      `${API}/api/visits?user_id=${encodeURIComponent(user.id)}`
-    );
+  setStatus(
+    '⭐ Загружаю мои места...'
+  );
 
 
-  if (!r.ok) return;
+  try {
+
+    const response =
+      await fetch(
+        `${API}/api/visits?user_id=${encodeURIComponent(user.id)}`
+      );
 
 
-  const list =
-    await r.json();
+    if (!response.ok) {
+
+      setStatus(
+        '❌ Не удалось загрузить места'
+      );
+
+      return;
+    }
 
 
-  clearMarkers();
+    const list =
+      await response.json();
 
 
-  for (const v of list) {
-
-    const p = {
-
-      id:
-        v.place_id,
-
-      name:
-        v.name,
-
-      address:
-        v.address,
-
-      lat:
-        v.lat,
-
-      lon:
-        v.lon,
-
-      icon:
-        v.sold
-          ? '💰'
-          : '📍'
-    };
+    clearMarkers();
 
 
-    places.set(
-      String(p.id),
-      p
-    );
+    places.clear();
 
 
-    const marker =
-      L.marker(
-        [p.lat, p.lon],
-        {
-          icon:
-            createIcon(p)
-        }
-      )
-      .addTo(map);
+    if (
+      !list.length
+    ) {
+
+      setStatus(
+        'У вас пока нет сохранённых мест'
+      );
+
+      return;
+    }
 
 
-    marker.bindPopup(
-      popup(p, v)
-    );
+    for (
+      const visit
+      of list
+    ) {
+
+      const place = {
+
+        id:
+          visit.place_id,
+
+        name:
+          visit.name,
+
+        address:
+          visit.address,
+
+        lat:
+          visit.lat,
+
+        lon:
+          visit.lon,
+
+        icon:
+          visit.sold
+            ? '💰'
+            : '📍'
+      };
 
 
-    markers.set(
-      String(p.id),
-      marker
-    );
-  }
+      places.set(
+        String(place.id),
+        place
+      );
 
 
-  if (list.length) {
+      const marker =
+        L.marker(
+          [
+            Number(place.lat),
+            Number(place.lon)
+          ],
+          {
+            icon:
+              createIcon(
+                place
+              )
+          }
+        )
+        .addTo(map);
+
+
+      marker.bindPopup(
+        popup(
+          place,
+          visit
+        )
+      );
+
+
+      markers.set(
+        String(place.id),
+        marker
+      );
+    }
+
+
+    const group =
+      L.featureGroup(
+        [
+          ...markers.values()
+        ]
+      );
+
 
     map.fitBounds(
-      L.featureGroup(
-        [...markers.values()]
-      )
-      .getBounds()
-      .pad(0.2)
+      group
+        .getBounds()
+        .pad(0.2)
+    );
+
+
+    setStatus(
+      `⭐ Мест: ${list.length}`
+    );
+
+  } catch (error) {
+
+    console.error(
+      'My places error:',
+      error
+    );
+
+
+    setStatus(
+      '❌ Ошибка загрузки мест'
     );
   }
 }
 
 
-/* -----------------------------------------
-   EVENTS
------------------------------------------ */
-
-
-document
-  .getElementById('searchBtn')
-  .onclick =
-    searchPlaces;
-
+/* =========================================
+   CLOSE SEARCH RESULTS
+========================================= */
 
 document
-  .getElementById('search')
+  .getElementById(
+    'closeResults'
+  )
   .addEventListener(
-    'keydown',
-    e => {
-
-      if (e.key === 'Enter') {
-        searchPlaces();
-      }
-
-    }
-  );
-
-
-document
-  .getElementById('locationBtn')
-  .onclick =
-    locateUser;
-
-
-document
-  .getElementById('allBtn')
-  .onclick =
-    loadMyPlaces;
-
-
-document
-  .getElementById('closeResults')
-  .onclick =
+    'click',
     () => {
 
       document
         .getElementById(
           'resultsPanel'
         )
-        .classList.add('hidden');
-    };
+        .classList.add(
+          'hidden'
+        );
+    }
+  );
 
+
+/* =========================================
+   CLOSE ROUTE
+========================================= */
 
 document
-  .getElementById('closeRoute')
-  .onclick =
+  .getElementById(
+    'closeRoute'
+  )
+  .addEventListener(
+    'click',
     () => {
 
       document
         .getElementById(
           'routePanel'
         )
-        .classList.add('hidden');
+        .classList.add(
+          'hidden'
+        );
+
 
       if (routeLine) {
 
@@ -1020,74 +1583,148 @@ document
           routeLine
         );
 
-        routeLine = null;
+        routeLine =
+          null;
       }
-    };
+    }
+  );
 
+
+/* =========================================
+   CLOSE PLACE MODAL
+========================================= */
 
 document
-  .getElementById('closeModal')
-  .onclick =
+  .getElementById(
+    'closeModal'
+  )
+  .addEventListener(
+    'click',
     () => {
 
       document
         .getElementById(
           'modal'
         )
-        .classList.add('hidden');
-    };
+        .classList.add(
+          'hidden'
+        );
+    }
+  );
 
+
+/* =========================================
+   SOLD YES
+========================================= */
 
 document
-  .getElementById('soldYes')
-  .onclick =
+  .getElementById(
+    'soldYes'
+  )
+  .addEventListener(
+    'click',
     async () => {
 
-      await saveVisit(
-        selectedPlace,
-        true,
+      if (!selectedPlace) {
+        return;
+      }
+
+
+      const note =
         document
-          .getElementById('note')
+          .getElementById(
+            'note'
+          )
           .value
-          .trim()
-      );
+          .trim();
 
 
-      document
-        .getElementById(
-          'modal'
-        )
-        .classList.add('hidden');
-    };
+      const result =
+        await saveVisit(
+          selectedPlace,
+          true,
+          note
+        );
 
 
-document
-  .getElementById('soldNo')
-  .onclick =
-    async () => {
+      if (result) {
 
-      await saveVisit(
-        selectedPlace,
-        false,
         document
-          .getElementById('note')
-          .value
-          .trim()
-      );
+          .getElementById(
+            'modal'
+          )
+          .classList.add(
+            'hidden'
+          );
+      }
+    }
+  );
 
 
-      document
-        .getElementById(
-          'modal'
-        )
-        .classList.add('hidden');
-    };
-
+/* =========================================
+   SOLD NO
+========================================= */
 
 document
-  .getElementById('saveNote')
-  .onclick =
+  .getElementById(
+    'soldNo'
+  )
+  .addEventListener(
+    'click',
     async () => {
+
+      if (!selectedPlace) {
+        return;
+      }
+
+
+      const note =
+        document
+          .getElementById(
+            'note'
+          )
+          .value
+          .trim();
+
+
+      const result =
+        await saveVisit(
+          selectedPlace,
+          false,
+          note
+        );
+
+
+      if (result) {
+
+        document
+          .getElementById(
+            'modal'
+          )
+          .classList.add(
+            'hidden'
+          );
+      }
+    }
+  );
+
+
+/* =========================================
+   SAVE NOTE
+========================================= */
+
+document
+  .getElementById(
+    'saveNote'
+  )
+  .addEventListener(
+    'click',
+    async () => {
+
+      if (!selectedPlace) {
+        return;
+      }
+
 
       const oldVisit =
         await getVisit(
@@ -1095,50 +1732,150 @@ document
         );
 
 
-      await saveVisit(
-        selectedPlace,
-        oldVisit?.sold || false,
+      const note =
         document
-          .getElementById('note')
+          .getElementById(
+            'note'
+          )
           .value
-          .trim()
-      );
+          .trim();
 
 
-      document
-        .getElementById(
-          'modal'
-        )
-        .classList.add('hidden');
-    };
+      const result =
+        await saveVisit(
+          selectedPlace,
 
+          oldVisit?.sold === true,
+
+          note
+        );
+
+
+      if (result) {
+
+        document
+          .getElementById(
+            'modal'
+          )
+          .classList.add(
+            'hidden'
+          );
+      }
+    }
+  );
+
+
+/* =========================================
+   ROUTE BUTTON
+========================================= */
 
 document
-  .getElementById('routeBtn')
-  .onclick =
+  .getElementById(
+    'routeBtn'
+  )
+  .addEventListener(
+    'click',
     () => {
 
-      if (selectedPlace) {
-        buildRoute(
-          selectedPlace.id
-        );
-      }
-    };
+      if (!selectedPlace) {
 
+        return;
+      }
+
+
+      buildRoute(
+        selectedPlace.id
+      );
+    }
+  );
+
+
+/* =========================================
+   SEARCH BUTTON
+========================================= */
+
+document
+  .getElementById(
+    'searchBtn'
+  )
+  .addEventListener(
+    'click',
+    searchPlaces
+  );
+
+
+/* =========================================
+   ENTER SEARCH
+========================================= */
+
+document
+  .getElementById(
+    'search'
+  )
+  .addEventListener(
+    'keydown',
+    event => {
+
+      if (
+        event.key === 'Enter'
+      ) {
+
+        searchPlaces();
+      }
+    }
+  );
+
+
+/* =========================================
+   LOCATION BUTTON
+========================================= */
+
+document
+  .getElementById(
+    'locationBtn'
+  )
+  .addEventListener(
+    'click',
+    locateUser
+  );
+
+
+/* =========================================
+   MY PLACES BUTTON
+========================================= */
+
+document
+  .getElementById(
+    'allBtn'
+  )
+  .addEventListener(
+    'click',
+    loadMyPlaces
+  );
+
+
+/* =========================================
+   CLEAR MARKERS
+========================================= */
 
 function clearMarkers() {
 
   markers.forEach(
-    m => map.removeLayer(m)
+    marker => {
+
+      map.removeLayer(
+        marker
+      );
+    }
   );
+
 
   markers.clear();
 }
 
 
-/* -----------------------------------------
+/* =========================================
    START
------------------------------------------ */
-
+========================================= */
 
 locateUser();
