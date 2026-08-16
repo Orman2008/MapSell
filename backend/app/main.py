@@ -3,14 +3,17 @@ import hashlib
 import hmac
 import json
 import time
-import math
+
 from urllib.parse import parse_qsl
 
 import httpx
+
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+
 from sqlalchemy.orm import Session
 from sqlalchemy import select, desc
+
 from pydantic import BaseModel, Field
 
 from .database import Base, engine, get_db
@@ -19,12 +22,11 @@ from .models import Visit
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="MapSell API")
+app = FastAPI(title="Tashkent Map API")
 
 origins = [
     x.strip()
     for x in os.getenv("CORS_ORIGINS", "*").split(",")
-    if x.strip()
 ]
 
 app.add_middleware(
@@ -35,10 +37,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-# -------------------------
-# MODELS
-# -------------------------
 
 class VisitIn(BaseModel):
     place_id: str
@@ -53,10 +51,6 @@ class VisitIn(BaseModel):
     user_name: str = "User"
 
 
-# -------------------------
-# TELEGRAM
-# -------------------------
-
 def verify_telegram_init_data(init_data: str) -> dict:
     token = os.getenv("TELEGRAM_BOT_TOKEN")
 
@@ -64,6 +58,7 @@ def verify_telegram_init_data(init_data: str) -> dict:
         return {}
 
     pairs = dict(parse_qsl(init_data, keep_blank_values=True))
+
     received = pairs.pop("hash", None)
 
     if not received:
@@ -97,187 +92,73 @@ def verify_telegram_init_data(init_data: str) -> dict:
     return json.loads(pairs.get("user", "{}"))
 
 
-# -------------------------
-# HEALTH
-# -------------------------
-
 @app.get("/health")
 def health():
     return {"ok": True}
 
 
-# -------------------------
-# PLACE SEARCH
-# -------------------------
+# ---------------------------------------------------------
+# SEARCH
+# ---------------------------------------------------------
 
 CATEGORY_MAP = {
-    "shop": {
-        "emoji": "🛒",
-        "label": "Магазин",
-        "query": '["shop"]'
-    },
-    "магазин": {
-        "emoji": "🛒",
-        "label": "Магазин",
-        "query": '["shop"]'
-    },
-    "аптека": {
-        "emoji": "💊",
-        "label": "Аптека",
-        "query": '["amenity"="pharmacy"]'
-    },
-    "aptek": {
-        "emoji": "💊",
-        "label": "Аптека",
-        "query": '["amenity"="pharmacy"]'
-    },
-    "pharmacy": {
-        "emoji": "💊",
-        "label": "Аптека",
-        "query": '["amenity"="pharmacy"]'
-    },
-    "dental": {
-        "emoji": "🦷",
-        "label": "Стоматология",
-        "query": '["amenity"="dentist"]'
-    },
-    "dentist": {
-        "emoji": "🦷",
-        "label": "Стоматология",
-        "query": '["amenity"="dentist"]'
-    },
-    "ресторан": {
-        "emoji": "🍴",
-        "label": "Ресторан",
-        "query": '["amenity"="restaurant"]'
-    },
-    "restaurant": {
-        "emoji": "🍴",
-        "label": "Ресторан",
-        "query": '["amenity"="restaurant"]'
-    },
-    "hotel": {
-        "emoji": "🏨",
-        "label": "Отель",
-        "query": '["tourism"="hotel"]'
-    },
-    "отель": {
-        "emoji": "🏨",
-        "label": "Отель",
-        "query": '["tourism"="hotel"]'
-    },
-    "beauty": {
-        "emoji": "💄",
-        "label": "Салон",
-        "query": '["shop"="beauty"]'
-    },
-    "салон": {
-        "emoji": "💄",
-        "label": "Салон",
-        "query": '["shop"="beauty"]'
-    },
-    "market": {
-        "emoji": "🛒",
-        "label": "Маркет",
-        "query": '["shop"="supermarket"]'
-    },
-    "supermarket": {
-        "emoji": "🛒",
-        "label": "Супермаркет",
-        "query": '["shop"="supermarket"]'
-    },
+    "shop": "shop",
+    "магазин": "shop",
+    "магазины": "shop",
+
+    "aptek": "pharmacy",
+    "аптек": "pharmacy",
+    "аптека": "pharmacy",
+    "аптеки": "pharmacy",
+    "pharmacy": "pharmacy",
+
+    "dental": "dentist",
+    "dentist": "dentist",
+    "стоматолог": "dentist",
+    "стоматология": "dentist",
+    "стоматологии": "dentist",
+
+    "butik": "clothes",
+    "бутик": "clothes",
+    "бутики": "clothes",
+    "boutique": "clothes",
 }
-
-
-def get_category(q: str):
-    value = q.strip().lower()
-
-    if value in CATEGORY_MAP:
-        return CATEGORY_MAP[value]
-
-    if "аптек" in value or "pharm" in value:
-        return CATEGORY_MAP["pharmacy"]
-
-    if "dent" in value or "стомат" in value:
-        return CATEGORY_MAP["dental"]
-
-    if "shop" in value or "магаз" in value:
-        return CATEGORY_MAP["shop"]
-
-    if "restaurant" in value or "ресторан" in value:
-        return CATEGORY_MAP["restaurant"]
-
-    if "hotel" in value or "отел" in value:
-        return CATEGORY_MAP["hotel"]
-
-    return None
-
-
-def haversine(lat1, lon1, lat2, lon2):
-    R = 6371000
-
-    p1 = math.radians(lat1)
-    p2 = math.radians(lat2)
-
-    dp = math.radians(lat2 - lat1)
-    dl = math.radians(lon2 - lon1)
-
-    a = (
-        math.sin(dp / 2) ** 2
-        + math.cos(p1)
-        * math.cos(p2)
-        * math.sin(dl / 2) ** 2
-    )
-
-    return R * 2 * math.atan2(
-        math.sqrt(a),
-        math.sqrt(1 - a)
-    )
 
 
 @app.get("/api/places/search")
 async def search_places(
     q: str = Query(min_length=2),
     lat: float = 41.2995,
-    lon: float = 69.2401,
-    radius: int = Query(default=10000, ge=500, le=30000)
+    lon: float = 69.2401
 ):
+    search = q.strip().lower()
 
-    category = get_category(q)
+    # Если введена категория
+    category = CATEGORY_MAP.get(search)
 
     if category:
-        selector = category["query"]
-        category_emoji = category["emoji"]
-        category_label = category["label"]
-
-        overpass_query = f"""
-        [out:json][timeout:25];
+        query = f"""
+        [out:json][timeout:20];
 
         (
-          node{selector}(around:{radius},{lat},{lon});
-          way{selector}(around:{radius},{lat},{lon});
+          node["{category}"](around:5000,{lat},{lon});
+          way["{category}"](around:5000,{lat},{lon});
+          relation["{category}"](around:5000,{lat},{lon});
         );
 
         out center tags;
         """
 
-    else:
-        # For normal text search, use Nominatim.
-        params = {
-            "q": f"{q}, Tashkent, Uzbekistan",
-            "format": "jsonv2",
-            "limit": 50,
-            "accept-language": "ru"
-        }
-
         async with httpx.AsyncClient(
-            timeout=20,
-            headers={"User-Agent": "MapSell/1.0"}
+            timeout=30,
+            headers={
+                "User-Agent": "TashkentMap/1.0"
+            }
         ) as client:
 
-            r = await client.get(
-                "https://nominatim.openstreetmap.org/search",
-                params=params
+            r = await client.post(
+                "https://overpass-api.de/api/interpreter",
+                data=query
             )
 
             r.raise_for_status()
@@ -286,192 +167,111 @@ async def search_places(
 
         result = []
 
-        for x in data:
+        for x in data.get("elements", []):
+
+            tags = x.get("tags", {})
+
+            if x.get("type") == "node":
+                item_lat = x.get("lat")
+                item_lon = x.get("lon")
+            else:
+                center = x.get("center", {})
+                item_lat = center.get("lat")
+                item_lon = center.get("lon")
+
+            if item_lat is None or item_lon is None:
+                continue
+
+            name = (
+                tags.get("name")
+                or tags.get("brand")
+                or tags.get("operator")
+                or "Без названия"
+            )
+
+            address_parts = [
+                tags.get("addr:street"),
+                tags.get("addr:housenumber"),
+                tags.get("addr:city"),
+            ]
+
+            address = ", ".join(
+                x for x in address_parts if x
+            )
+
             result.append({
-                "id": f"{x.get('osm_type','')}_{x.get('osm_id','')}",
-                "name": x.get("display_name", "").split(",")[0],
-                "address": x.get("display_name", ""),
-                "lat": float(x["lat"]),
-                "lon": float(x["lon"]),
-                "category": "📍",
-                "category_name": "Место"
+                "id": f"{x.get('type')}_{x.get('id')}",
+                "name": name,
+                "address": address,
+                "lat": float(item_lat),
+                "lon": float(item_lon),
+                "category": category,
+                "icon": {
+                    "shop": "🛒",
+                    "pharmacy": "💊",
+                    "dentist": "🦷",
+                    "clothes": "👗"
+                }.get(category, "📍")
             })
 
-        return result
-
-    async with httpx.AsyncClient(
-        timeout=35,
-        headers={"User-Agent": "MapSell/1.0"}
-    ) as client:
-
-        r = await client.post(
-            "https://overpass-api.de/api/interpreter",
-            data={"data": overpass_query}
-        )
-
-        r.raise_for_status()
-
-        data = r.json()
-
-    result = []
-
-    for element in data.get("elements", []):
-
-        tags = element.get("tags", {})
-
-        if element["type"] == "node":
-            p_lat = element.get("lat")
-            p_lon = element.get("lon")
-        else:
-            center = element.get("center", {})
-            p_lat = center.get("lat")
-            p_lon = center.get("lon")
-
-        if p_lat is None or p_lon is None:
-            continue
-
-        name = tags.get("name")
-
-        if not name:
-            name = tags.get("brand") or category_label
-
-        address_parts = []
-
-        for key in [
-            "addr:street",
-            "addr:housenumber",
-            "addr:district"
-        ]:
-            if tags.get(key):
-                address_parts.append(tags[key])
-
-        address = ", ".join(address_parts)
-
-        distance = haversine(
-            lat,
-            lon,
-            float(p_lat),
-            float(p_lon)
-        )
-
-        result.append({
-            "id": f"{element['type']}_{element['id']}",
-            "name": name,
-            "address": address,
-            "lat": float(p_lat),
-            "lon": float(p_lon),
-            "category": category_emoji,
-            "category_name": category_label,
-            "distance_straight": round(distance)
-        })
-
-    result.sort(
-        key=lambda x: x.get("distance_straight", 999999999)
-    )
-
-    return result[:100]
+        return result[:100]
 
 
-# -------------------------
-# ROUTING
-# -------------------------
-
-VALHALLA_URL = os.getenv(
-    "VALHALLA_URL",
-    "https://valhalla1.openstreetmap.de/route"
-)
-
-
-@app.get("/api/route")
-async def route(
-    from_lat: float,
-    from_lon: float,
-    to_lat: float,
-    to_lon: float,
-    mode: str = "pedestrian"
-):
-
-    if mode not in ["pedestrian", "auto"]:
-        raise HTTPException(
-            400,
-            "mode must be pedestrian or auto"
-        )
-
-    payload = {
-        "locations": [
-            {
-                "lat": from_lat,
-                "lon": from_lon
-            },
-            {
-                "lat": to_lat,
-                "lon": to_lon
-            }
-        ],
-        "costing": mode,
-        "units": "kilometers",
-        "directions_options": {
-            "units": "kilometers"
-        }
+    # Обычный поиск конкретного места
+    params = {
+        "q": f"{q}, Tashkent, Uzbekistan",
+        "format": "jsonv2",
+        "limit": 50,
+        "accept-language": "ru"
     }
 
     async with httpx.AsyncClient(
-        timeout=30,
+        timeout=15,
         headers={
-            "User-Agent": "MapSell/1.0",
-            "X-Client-Id": "mapsell"
+            "User-Agent": "TashkentMap/1.0"
         }
     ) as client:
 
-        r = await client.post(
-            VALHALLA_URL,
-            json=payload
+        r = await client.get(
+            "https://nominatim.openstreetmap.org/search",
+            params=params
         )
 
         r.raise_for_status()
 
         data = r.json()
 
-    trip = data.get("trip", {})
-    summary = trip.get("summary", {})
+    return [
+        {
+            "id": (
+                x.get("osm_type", "")
+                + "_"
+                + str(x.get("osm_id", ""))
+            ),
+            "name": x.get(
+                "display_name",
+                ""
+            ).split(",")[0],
 
-    maneuvers = trip.get("legs", [{}])[0].get(
-        "maneuvers",
-        []
-    )
+            "address": x.get(
+                "display_name",
+                ""
+            ),
 
-    shape = trip.get("legs", [{}])[0].get(
-        "shape"
-    )
+            "lat": float(x["lat"]),
+            "lon": float(x["lon"]),
 
-    return {
-        "distance_km": round(
-            float(summary.get("length", 0)),
-            2
-        ),
-        "duration_min": round(
-            float(summary.get("time", 0)) / 60
-        ),
-        "shape": shape,
-        "maneuvers": [
-            {
-                "instruction": x.get(
-                    "instruction",
-                    ""
-                ),
-                "length_km": round(
-                    float(x.get("length", 0)),
-                    2
-                )
-            }
-            for x in maneuvers
-        ]
-    }
+            "category": "place",
+            "icon": "📍"
+        }
+
+        for x in data
+    ]
 
 
-# -------------------------
+# ---------------------------------------------------------
 # VISITS
-# -------------------------
+# ---------------------------------------------------------
 
 @app.get("/api/visits/{place_id}")
 def get_visit(
@@ -491,8 +291,19 @@ def get_visit(
         return None
 
     return {
-        c.name: getattr(v, c.name)
-        for c in Visit.__table__.columns
+        "id": v.id,
+        "place_id": v.place_id,
+        "user_id": v.user_id,
+        "user_name": v.user_name,
+        "name": v.name,
+        "address": v.address,
+        "lat": v.lat,
+        "lon": v.lon,
+        "visited": v.visited,
+        "sold": v.sold,
+        "note": v.note,
+        "created_at": v.created_at,
+        "updated_at": v.updated_at,
     }
 
 
@@ -514,15 +325,26 @@ def upsert_visit(
         db.add(v)
 
     else:
-        for key, value in payload.model_dump().items():
-            setattr(v, key, value)
+        for k, val in payload.model_dump().items():
+            setattr(v, k, val)
 
     db.commit()
     db.refresh(v)
 
     return {
-        c.name: getattr(v, c.name)
-        for c in Visit.__table__.columns
+        "id": v.id,
+        "place_id": v.place_id,
+        "user_id": v.user_id,
+        "user_name": v.user_name,
+        "name": v.name,
+        "address": v.address,
+        "lat": v.lat,
+        "lon": v.lon,
+        "visited": v.visited,
+        "sold": v.sold,
+        "note": v.note,
+        "created_at": v.created_at,
+        "updated_at": v.updated_at,
     }
 
 
@@ -532,7 +354,7 @@ def my_visits(
     db: Session = Depends(get_db)
 ):
 
-    visits = db.scalars(
+    vs = db.scalars(
         select(Visit)
         .where(Visit.user_id == user_id)
         .order_by(desc(Visit.updated_at))
@@ -540,10 +362,21 @@ def my_visits(
 
     return [
         {
-            c.name: getattr(v, c.name)
-            for c in Visit.__table__.columns
+            "id": v.id,
+            "place_id": v.place_id,
+            "user_id": v.user_id,
+            "user_name": v.user_name,
+            "name": v.name,
+            "address": v.address,
+            "lat": v.lat,
+            "lon": v.lon,
+            "visited": v.visited,
+            "sold": v.sold,
+            "note": v.note,
+            "created_at": v.created_at,
+            "updated_at": v.updated_at,
         }
-        for v in visits
+        for v in vs
     ]
 
 
@@ -553,7 +386,7 @@ def all_shared_visits(
     db: Session = Depends(get_db)
 ):
 
-    visits = db.scalars(
+    vs = db.scalars(
         select(Visit)
         .where(Visit.visited == True)
         .order_by(desc(Visit.updated_at))
@@ -561,8 +394,19 @@ def all_shared_visits(
 
     return [
         {
-            c.name: getattr(v, c.name)
-            for c in Visit.__table__.columns
+            "id": v.id,
+            "place_id": v.place_id,
+            "user_id": v.user_id,
+            "user_name": v.user_name,
+            "name": v.name,
+            "address": v.address,
+            "lat": v.lat,
+            "lon": v.lon,
+            "visited": v.visited,
+            "sold": v.sold,
+            "note": v.note,
+            "created_at": v.created_at,
+            "updated_at": v.updated_at,
         }
-        for v in visits
+        for v in vs
     ]
