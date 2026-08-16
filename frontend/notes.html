@@ -1,26 +1,238 @@
 <!doctype html>
 <html lang="ru">
+
 <head>
+
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>Заметки — Tashkent Map</title>
-  <link rel="stylesheet" href="css/style.css">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover"
+  >
+
+  <title>MapSell — Заметки</title>
+
+  <link
+    rel="stylesheet"
+    href="css/style.css"
+  >
+
 </head>
+
 <body>
+
 <header class="topbar">
-  <div class="brand">📝 Мои заметки</div>
-  <nav><a href="index.html">Карта</a><a class="active" href="notes.html">Заметки</a></nav>
-</header>
-<main class="notes-page">
-  <div class="stats">
-    <div><b id="total">0</b><span>Посещений</span></div>
-    <div><b id="sold">0</b><span>Продано</span></div>
-    <div><b id="notSold">0</b><span>Не продано</span></div>
+
+  <div class="brand">
+    🗺️ MapSell
   </div>
-  <div id="notesList"></div>
+
+  <nav>
+
+    <a href="index.html">
+      Карта
+    </a>
+
+    <a
+      class="active"
+      href="notes.html"
+    >
+      Заметки
+    </a>
+
+  </nav>
+
+</header>
+
+
+<main class="notes-page">
+
+
+  <!-- HEADER -->
+
+  <section class="notes-hero">
+
+    <div>
+
+      <h1>
+        📝 Мои заметки
+      </h1>
+
+      <p>
+        Все места, которые ты посетил
+      </p>
+
+    </div>
+
+    <button
+      id="refreshBtn"
+      class="refresh-btn"
+    >
+      🔄
+    </button>
+
+  </section>
+
+
+  <!-- STATS -->
+
+  <section class="stats">
+
+    <div class="stat-card">
+
+      <span class="stat-icon">
+        📍
+      </span>
+
+      <b id="total">
+        0
+      </b>
+
+      <span>
+        Всего мест
+      </span>
+
+    </div>
+
+
+    <div class="stat-card sold-stat">
+
+      <span class="stat-icon">
+        💰
+      </span>
+
+      <b id="sold">
+        0
+      </b>
+
+      <span>
+        Продано
+      </span>
+
+    </div>
+
+
+    <div class="stat-card notsold-stat">
+
+      <span class="stat-icon">
+        ❌
+      </span>
+
+      <b id="notSold">
+        0
+      </b>
+
+      <span>
+        Не продано
+      </span>
+
+    </div>
+
+  </section>
+
+
+  <!-- SEARCH -->
+
+  <section class="notes-tools">
+
+    <div class="notes-search">
+
+      🔎
+
+      <input
+        id="notesSearch"
+        type="text"
+        placeholder="Поиск по местам и заметкам..."
+      >
+
+    </div>
+
+
+    <div class="filters">
+
+      <button
+        class="filter active"
+        data-filter="all"
+      >
+        Все
+      </button>
+
+      <button
+        class="filter"
+        data-filter="sold"
+      >
+        💰 Продано
+      </button>
+
+      <button
+        class="filter"
+        data-filter="notSold"
+      >
+        ❌ Не продано
+      </button>
+
+    </div>
+
+  </section>
+
+
+  <!-- LOCATION -->
+
+  <section
+    id="locationStatus"
+    class="location-status"
+  >
+    📍 Определяем ваше местоположение...
+  </section>
+
+
+  <!-- NOTES -->
+
+  <section id="notesList">
+
+  </section>
+
+
+  <div
+    id="loading"
+    class="notes-loading"
+  >
+    ⏳ Загружаю заметки...
+  </div>
+
+
+  <div
+    id="empty"
+    class="empty hidden"
+  >
+    <div class="empty-icon">
+      📝
+    </div>
+
+    <h3>
+      Пока нет заметок
+    </h3>
+
+    <p>
+      Найди место на карте и добавь первую заметку.
+    </p>
+
+    <a href="index.html">
+      🗺️ Открыть карту
+    </a>
+
+  </div>
+
+
 </main>
+
+
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
 <script src="js/config.js"></script>
+
 <script src="js/notes.js"></script>
+
 </body>
+
 </html>
