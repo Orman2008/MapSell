@@ -1,40 +1,151 @@
 <!doctype html>
 <html lang="ru">
+
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>Tashkent Map</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover"
+  >
+
+  <title>MapSell</title>
+
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  >
+
   <link rel="stylesheet" href="css/style.css">
 </head>
+
 <body>
+
 <header class="topbar">
-  <div class="brand">📍 Tashkent Map</div>
-  <nav><a class="active" href="index.html">Карта</a><a href="notes.html">Заметки</a></nav>
+
+  <div class="brand">
+    🗺️ MapSell
+  </div>
+
+  <nav>
+    <a class="active" href="index.html">Карта</a>
+    <a href="notes.html">Заметки</a>
+  </nav>
+
 </header>
+
+
 <main class="app">
+
   <section class="controls">
-    <input id="search" placeholder="Например: dental clinic, pharmacy, магазин телефонов">
-    <button id="searchBtn">Поиск</button>
-    <button id="allBtn" class="secondary">Мои места</button>
+
+    <div class="search-row">
+
+      <input
+        id="search"
+        placeholder="shop, aptek, dental, restaurant..."
+      >
+
+      <button id="searchBtn">
+        🔍
+      </button>
+
+    </div>
+
+
+    <div class="quick-buttons">
+
+      <button id="locationBtn" class="secondary">
+        📍 Моё место
+      </button>
+
+      <button id="allBtn" class="secondary">
+        ⭐ Мои места
+      </button>
+
+    </div>
+
     <div id="status" class="status"></div>
+
   </section>
+
+
+  <aside id="resultsPanel" class="results-panel">
+
+    <div class="results-header">
+
+      <b id="resultsTitle">
+        Результаты
+      </b>
+
+      <button id="closeResults">
+        ×
+      </button>
+
+    </div>
+
+    <div id="resultsList"></div>
+
+  </aside>
+
+
   <div id="map"></div>
+
 </main>
 
-<div id="modal" class="modal hidden">
-  <div class="modal-card">
-    <button class="close" id="closeModal">×</button>
-    <h2 id="modalTitle">Продано</h2>
-    <p>Добавить заметку к месту:</p>
-    <textarea id="note" maxlength="2000" placeholder="Напиши заметку..."></textarea>
-    <button id="saveNote">Сохранить</button>
+
+<div id="placeModal" class="modal hidden">
+
+  <div class="place-card">
+
+    <button
+      id="closePlace"
+      class="close"
+    >
+      ×
+    </button>
+
+    <div id="placeContent"></div>
+
   </div>
+
 </div>
 
+
+<div id="noteModal" class="modal hidden">
+
+  <div class="modal-card">
+
+    <button
+      id="closeNote"
+      class="close"
+    >
+      ×
+    </button>
+
+    <h2>📝 Заметка</h2>
+
+    <textarea
+      id="note"
+      maxlength="2000"
+      placeholder="Напиши что-нибудь..."
+    ></textarea>
+
+    <button id="saveNote">
+      Сохранить
+    </button>
+
+  </div>
+
+</div>
+
+
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script src="js/config.js"></script>
+
 <script src="js/app.js"></script>
+
 </body>
 </html>
