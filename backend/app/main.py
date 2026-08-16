@@ -3,17 +3,13 @@ import hashlib
 import hmac
 import json
 import time
-
 from urllib.parse import parse_qsl
 
 import httpx
-
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-
 from sqlalchemy.orm import Session
 from sqlalchemy import select, desc
-
 from pydantic import BaseModel, Field
 
 from .database import Base, engine, get_db
@@ -22,12 +18,23 @@ from .models import Visit
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Tashkent Map API")
+app = FastAPI(title="MapSell API")
 
-origins = [
-    x.strip()
-    for x in os.getenv("CORS_ORIGINS", "*").split(",")
-]
+
+# =========================================================
+# CORS
+# =========================================================
+
+cors_value = os.getenv("CORS_ORIGINS", "*")
+
+if cors_value == "*":
+    origins = ["*"]
+else:
+    origins = [
+        x.strip()
+        for x in cors_value.split(",")
+        if x.strip()
+    ]
 
 app.add_middleware(
     CORSMiddleware,
@@ -38,35 +45,58 @@ app.add_middleware(
 )
 
 
+# =========================================================
+# MODELS
+# =========================================================
+
 class VisitIn(BaseModel):
     place_id: str
     name: str
     address: str = ""
     lat: float
     lon: float
+
     visited: bool = True
     sold: bool = False
-    note: str | None = Field(default=None, max_length=2000)
+
+    note: str | None = Field(
+        default=None,
+        max_length=2000
+    )
+
     user_id: str
     user_name: str = "User"
 
 
+# =========================================================
+# TELEGRAM
+# =========================================================
+
 def verify_telegram_init_data(init_data: str) -> dict:
+
     token = os.getenv("TELEGRAM_BOT_TOKEN")
 
     if not token:
         return {}
 
-    pairs = dict(parse_qsl(init_data, keep_blank_values=True))
+    pairs = dict(
+        parse_qsl(
+            init_data,
+            keep_blank_values=True
+        )
+    )
 
     received = pairs.pop("hash", None)
 
     if not received:
-        raise HTTPException(401, "Invalid Telegram data")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Telegram data"
+        )
 
     data_check = "\n".join(
-        f"{k}={pairs[k]}"
-        for k in sorted(pairs)
+        f"{key}={pairs[key]}"
+        for key in sorted(pairs)
     )
 
     secret = hmac.new(
@@ -81,49 +111,49 @@ def verify_telegram_init_data(init_data: str) -> dict:
         hashlib.sha256
     ).hexdigest()
 
-    if not hmac.compare_digest(expected, received):
-        raise HTTPException(401, "Invalid Telegram signature")
+    if not hmac.compare_digest(
+        expected,
+        received
+    ):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid Telegram signature"
+        )
 
-    auth_date = int(pairs.get("auth_date", "0"))
+    auth_date = int(
+        pairs.get("auth_date", "0")
+    )
 
     if time.time() - auth_date > 86400:
-        raise HTTPException(401, "Telegram data expired")
+        raise HTTPException(
+            status_code=401,
+            detail="Telegram data expired"
+        )
 
-    return json.loads(pairs.get("user", "{}"))
+    try:
+        return json.loads(
+            pairs.get("user", "{}")
+        )
+    except Exception:
+        return {}
 
+
+# =========================================================
+# HEALTH
+# =========================================================
 
 @app.get("/health")
 def health():
-    return {"ok": True}
+
+    return {
+        "ok": True,
+        "service": "MapSell API"
+    }
 
 
-# ---------------------------------------------------------
-# SEARCH
-# ---------------------------------------------------------
-
-CATEGORY_MAP = {
-    "shop": "shop",
-    "магазин": "shop",
-    "магазины": "shop",
-
-    "aptek": "pharmacy",
-    "аптек": "pharmacy",
-    "аптека": "pharmacy",
-    "аптеки": "pharmacy",
-    "pharmacy": "pharmacy",
-
-    "dental": "dentist",
-    "dentist": "dentist",
-    "стоматолог": "dentist",
-    "стоматология": "dentist",
-    "стоматологии": "dentist",
-
-    "butik": "clothes",
-    "бутик": "clothes",
-    "бутики": "clothes",
-    "boutique": "clothes",
-}
-
+# =========================================================
+# SEARCH PLACES
+# =========================================================
 
 @app.get("/api/places/search")
 async def search_places(
@@ -131,147 +161,165 @@ async def search_places(
     lat: float = 41.2995,
     lon: float = 69.2401
 ):
-    search = q.strip().lower()
 
-    # Если введена категория
-    category = CATEGORY_MAP.get(search)
+    q = q.strip()
 
-    if category:
-        query = f"""
-        [out:json][timeout:20];
+    if not q:
+        return []
 
-        (
-          node["{category}"](around:5000,{lat},{lon});
-          way["{category}"](around:5000,{lat},{lon});
-          relation["{category}"](around:5000,{lat},{lon});
-        );
+    # Поддержка популярных запросов
+    aliases = {
+        "shop": "shop",
+        "магазин": "shop",
+        "store": "shop",
 
-        out center tags;
-        """
+        "aptek": "pharmacy",
+        "аптека": "pharmacy",
+        "pharmacy": "pharmacy",
 
-        async with httpx.AsyncClient(
-            timeout=30,
-            headers={
-                "User-Agent": "TashkentMap/1.0"
-            }
-        ) as client:
+        "dental": "dentist",
+        "стоматология": "dentist",
+        "dentist": "dentist",
 
-            r = await client.post(
-                "https://overpass-api.de/api/interpreter",
-                data=query
-            )
+        "restaurant": "restaurant",
+        "ресторан": "restaurant",
 
-            r.raise_for_status()
+        "cafe": "cafe",
+        "кафе": "cafe",
 
-            data = r.json()
+        "hotel": "hotel",
+        "отель": "hotel",
 
-        result = []
+        "supermarket": "supermarket",
+        "супермаркет": "supermarket",
 
-        for x in data.get("elements", []):
+        "bank": "bank",
+        "банк": "bank",
 
-            tags = x.get("tags", {})
-
-            if x.get("type") == "node":
-                item_lat = x.get("lat")
-                item_lon = x.get("lon")
-            else:
-                center = x.get("center", {})
-                item_lat = center.get("lat")
-                item_lon = center.get("lon")
-
-            if item_lat is None or item_lon is None:
-                continue
-
-            name = (
-                tags.get("name")
-                or tags.get("brand")
-                or tags.get("operator")
-                or "Без названия"
-            )
-
-            address_parts = [
-                tags.get("addr:street"),
-                tags.get("addr:housenumber"),
-                tags.get("addr:city"),
-            ]
-
-            address = ", ".join(
-                x for x in address_parts if x
-            )
-
-            result.append({
-                "id": f"{x.get('type')}_{x.get('id')}",
-                "name": name,
-                "address": address,
-                "lat": float(item_lat),
-                "lon": float(item_lon),
-                "category": category,
-                "icon": {
-                    "shop": "🛒",
-                    "pharmacy": "💊",
-                    "dentist": "🦷",
-                    "clothes": "👗"
-                }.get(category, "📍")
-            })
-
-        return result[:100]
-
-
-    # Обычный поиск конкретного места
-    params = {
-        "q": f"{q}, Tashkent, Uzbekistan",
-        "format": "jsonv2",
-        "limit": 50,
-        "accept-language": "ru"
+        "market": "market",
+        "рынок": "market"
     }
 
-    async with httpx.AsyncClient(
-        timeout=15,
-        headers={
-            "User-Agent": "TashkentMap/1.0"
-        }
-    ) as client:
+    search_query = aliases.get(
+        q.lower(),
+        q
+    )
 
-        r = await client.get(
-            "https://nominatim.openstreetmap.org/search",
-            params=params
+    params = {
+        "q": f"{search_query}, Tashkent, Uzbekistan",
+        "format": "jsonv2",
+        "limit": 50,
+        "addressdetails": 1,
+        "accept-language": "ru",
+        "dedupe": 1
+    }
+
+    headers = {
+        "User-Agent": "MapSell/1.0 (Tashkent map application)"
+    }
+
+    try:
+
+        async with httpx.AsyncClient(
+            timeout=20,
+            headers=headers
+        ) as client:
+
+            response = await client.get(
+                "https://nominatim.openstreetmap.org/search",
+                params=params
+            )
+
+            response.raise_for_status()
+
+            data = response.json()
+
+    except Exception as e:
+
+        print(
+            "NOMINATIM ERROR:",
+            repr(e)
         )
 
-        r.raise_for_status()
+        raise HTTPException(
+            status_code=502,
+            detail="Ошибка сервиса поиска мест"
+        )
 
-        data = r.json()
+    result = []
 
-    return [
-        {
-            "id": (
+    for x in data:
+
+        try:
+
+            osm_type = str(
                 x.get("osm_type", "")
-                + "_"
-                + str(x.get("osm_id", ""))
-            ),
-            "name": x.get(
-                "display_name",
-                ""
-            ).split(",")[0],
+            )
 
-            "address": x.get(
-                "display_name",
-                ""
-            ),
+            osm_id = str(
+                x.get("osm_id", "")
+            )
 
-            "lat": float(x["lat"]),
-            "lon": float(x["lon"]),
+            place_id = (
+                f"{osm_type}_{osm_id}"
+            )
 
-            "category": "place",
-            "icon": "📍"
-        }
+            display_name = str(
+                x.get(
+                    "display_name",
+                    "Место"
+                )
+            )
 
-        for x in data
-    ]
+            name = (
+                x.get("name")
+                or display_name.split(",")[0]
+                or "Место"
+            )
+
+            address = display_name
+
+            place_lat = float(
+                x["lat"]
+            )
+
+            place_lon = float(
+                x["lon"]
+            )
+
+            result.append(
+                {
+                    "id": place_id,
+                    "name": name,
+                    "address": address,
+                    "lat": place_lat,
+                    "lon": place_lon,
+                    "type": x.get(
+                        "type",
+                        ""
+                    ),
+                    "category": x.get(
+                        "category",
+                        ""
+                    )
+                }
+            )
+
+        except Exception as e:
+
+            print(
+                "PLACE PARSE ERROR:",
+                repr(e)
+            )
+
+            continue
+
+    return result
 
 
-# ---------------------------------------------------------
-# VISITS
-# ---------------------------------------------------------
+# =========================================================
+# GET VISIT
+# =========================================================
 
 @app.get("/api/visits/{place_id}")
 def get_visit(
@@ -280,32 +328,36 @@ def get_visit(
     db: Session = Depends(get_db)
 ):
 
-    v = db.scalar(
+    visit = db.scalar(
         select(Visit).where(
             Visit.place_id == place_id,
             Visit.user_id == user_id
         )
     )
 
-    if not v:
+    if not visit:
         return None
 
     return {
-        "id": v.id,
-        "place_id": v.place_id,
-        "user_id": v.user_id,
-        "user_name": v.user_name,
-        "name": v.name,
-        "address": v.address,
-        "lat": v.lat,
-        "lon": v.lon,
-        "visited": v.visited,
-        "sold": v.sold,
-        "note": v.note,
-        "created_at": v.created_at,
-        "updated_at": v.updated_at,
+        "id": visit.id,
+        "place_id": visit.place_id,
+        "user_id": visit.user_id,
+        "user_name": visit.user_name,
+        "name": visit.name,
+        "address": visit.address,
+        "lat": visit.lat,
+        "lon": visit.lon,
+        "visited": visit.visited,
+        "sold": visit.sold,
+        "note": visit.note,
+        "created_at": visit.created_at,
+        "updated_at": visit.updated_at
     }
 
+
+# =========================================================
+# SAVE / UPDATE VISIT
+# =========================================================
 
 @app.post("/api/visits")
 def upsert_visit(
@@ -313,40 +365,56 @@ def upsert_visit(
     db: Session = Depends(get_db)
 ):
 
-    v = db.scalar(
+    visit = db.scalar(
         select(Visit).where(
             Visit.place_id == payload.place_id,
             Visit.user_id == payload.user_id
         )
     )
 
-    if not v:
-        v = Visit(**payload.model_dump())
-        db.add(v)
+    data = payload.model_dump()
+
+    if not visit:
+
+        visit = Visit(
+            **data
+        )
+
+        db.add(visit)
 
     else:
-        for k, val in payload.model_dump().items():
-            setattr(v, k, val)
+
+        for key, value in data.items():
+
+            setattr(
+                visit,
+                key,
+                value
+            )
 
     db.commit()
-    db.refresh(v)
+    db.refresh(visit)
 
     return {
-        "id": v.id,
-        "place_id": v.place_id,
-        "user_id": v.user_id,
-        "user_name": v.user_name,
-        "name": v.name,
-        "address": v.address,
-        "lat": v.lat,
-        "lon": v.lon,
-        "visited": v.visited,
-        "sold": v.sold,
-        "note": v.note,
-        "created_at": v.created_at,
-        "updated_at": v.updated_at,
+        "id": visit.id,
+        "place_id": visit.place_id,
+        "user_id": visit.user_id,
+        "user_name": visit.user_name,
+        "name": visit.name,
+        "address": visit.address,
+        "lat": visit.lat,
+        "lon": visit.lon,
+        "visited": visit.visited,
+        "sold": visit.sold,
+        "note": visit.note,
+        "created_at": visit.created_at,
+        "updated_at": visit.updated_at
     }
 
+
+# =========================================================
+# MY PLACES
+# =========================================================
 
 @app.get("/api/visits")
 def my_visits(
@@ -354,10 +422,14 @@ def my_visits(
     db: Session = Depends(get_db)
 ):
 
-    vs = db.scalars(
+    visits = db.scalars(
         select(Visit)
-        .where(Visit.user_id == user_id)
-        .order_by(desc(Visit.updated_at))
+        .where(
+            Visit.user_id == user_id
+        )
+        .order_by(
+            desc(Visit.updated_at)
+        )
     ).all()
 
     return [
@@ -374,11 +446,15 @@ def my_visits(
             "sold": v.sold,
             "note": v.note,
             "created_at": v.created_at,
-            "updated_at": v.updated_at,
+            "updated_at": v.updated_at
         }
-        for v in vs
+        for v in visits
     ]
 
+
+# =========================================================
+# ALL SHARED VISITS
+# =========================================================
 
 @app.get("/api/visits/all")
 def all_shared_visits(
@@ -386,10 +462,14 @@ def all_shared_visits(
     db: Session = Depends(get_db)
 ):
 
-    vs = db.scalars(
+    visits = db.scalars(
         select(Visit)
-        .where(Visit.visited == True)
-        .order_by(desc(Visit.updated_at))
+        .where(
+            Visit.visited == True
+        )
+        .order_by(
+            desc(Visit.updated_at)
+        )
     ).all()
 
     return [
@@ -406,7 +486,7 @@ def all_shared_visits(
             "sold": v.sold,
             "note": v.note,
             "created_at": v.created_at,
-            "updated_at": v.updated_at,
+            "updated_at": v.updated_at
         }
-        for v in vs
+        for v in visits
     ]
