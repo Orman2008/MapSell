@@ -1,26 +1,185 @@
 <!doctype html>
 <html lang="ru">
+
 <head>
+
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>Заметки — Tashkent Map</title>
-  <link rel="stylesheet" href="css/style.css">
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1,viewport-fit=cover"
+  >
+
+  <title>Заметки — MapSell</title>
+
+  <link
+    rel="stylesheet"
+    href="css/style.css"
+  >
+
 </head>
+
+
 <body>
+
 <header class="topbar">
-  <div class="brand">📝 Мои заметки</div>
-  <nav><a href="index.html">Карта</a><a class="active" href="notes.html">Заметки</a></nav>
-</header>
-<main class="notes-page">
-  <div class="stats">
-    <div><b id="total">0</b><span>Посещений</span></div>
-    <div><b id="sold">0</b><span>Продано</span></div>
-    <div><b id="notSold">0</b><span>Не продано</span></div>
+
+  <div class="brand">
+    📝 MapSell
   </div>
-  <div id="notesList"></div>
+
+  <nav>
+
+    <a href="index.html">
+      Карта
+    </a>
+
+    <a
+      class="active"
+      href="notes.html"
+    >
+      Заметки
+    </a>
+
+  </nav>
+
+</header>
+
+
+<main class="notes-page">
+
+  <div class="notes-title">
+
+    <div>
+
+      <h1>
+        Мои места
+      </h1>
+
+      <p>
+        Все сохранённые места и заметки
+      </p>
+
+    </div>
+
+    <a
+      class="map-button"
+      href="index.html"
+    >
+      🗺️ Карта
+    </a>
+
+  </div>
+
+
+  <!-- STATS -->
+
+  <section class="stats">
+
+    <div class="stat-card">
+
+      <div class="stat-icon">
+        📍
+      </div>
+
+      <b id="total">
+        0
+      </b>
+
+      <span>
+        Всего мест
+      </span>
+
+    </div>
+
+
+    <div class="stat-card">
+
+      <div class="stat-icon">
+        💰
+      </div>
+
+      <b id="sold">
+        0
+      </b>
+
+      <span>
+        Продано
+      </span>
+
+    </div>
+
+
+    <div class="stat-card">
+
+      <div class="stat-icon">
+        ❌
+      </div>
+
+      <b id="notSold">
+        0
+      </b>
+
+      <span>
+        Не продано
+      </span>
+
+    </div>
+
+  </section>
+
+
+  <!-- FILTER -->
+
+  <div class="notes-toolbar">
+
+    <input
+      id="notesSearch"
+      placeholder="🔎 Найти среди заметок..."
+    >
+
+    <select id="notesFilter">
+
+      <option value="all">
+        Все
+      </option>
+
+      <option value="sold">
+        Продано
+      </option>
+
+      <option value="notSold">
+        Не продано
+      </option>
+
+      <option value="notes">
+        Только с заметкой
+      </option>
+
+    </select>
+
+  </div>
+
+
+  <!-- LIST -->
+
+  <section id="notesList">
+
+    <div class="loading">
+      Загружаю...
+    </div>
+
+  </section>
+
 </main>
+
+
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
 <script src="js/config.js"></script>
+
 <script src="js/notes.js"></script>
+
 </body>
+
 </html>

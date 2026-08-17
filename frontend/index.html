@@ -11,15 +11,7 @@
 
   <title>MapSell</title>
 
-  <link
-    rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-  >
-
-  <link
-    rel="stylesheet"
-    href="css/style.css"
-  >
+  <link rel="stylesheet" href="css/style.css">
 </head>
 
 <body>
@@ -31,13 +23,8 @@
   </div>
 
   <nav>
-    <a class="active" href="index.html">
-      Карта
-    </a>
-
-    <a href="notes.html">
-      Заметки
-    </a>
+    <a class="active" href="index.html">Карта</a>
+    <a href="notes.html">Заметки</a>
   </nav>
 
 </header>
@@ -45,9 +32,7 @@
 
 <main class="app">
 
-  <!-- ==============================
-       SEARCH
-  =============================== -->
+  <!-- SEARCH -->
 
   <section class="controls">
 
@@ -69,31 +54,22 @@
 
     <div class="quick-buttons">
 
-      <button
-        id="locationBtn"
-        class="secondary"
-      >
+      <button id="locationBtn">
         📍 Моё место
       </button>
 
-      <button
-        id="allBtn"
-        class="secondary"
-      >
+      <button id="allBtn">
         ⭐ Мои места
       </button>
 
     </div>
-
 
     <div id="status" class="status"></div>
 
   </section>
 
 
-  <!-- ==============================
-       SEARCH RESULTS
-  =============================== -->
+  <!-- RESULTS -->
 
   <aside
     id="resultsPanel"
@@ -112,22 +88,17 @@
 
     </div>
 
-
     <div id="resultsList"></div>
 
   </aside>
 
 
-  <!-- ==============================
-       MAP
-  =============================== -->
+  <!-- MAP -->
 
   <div id="map"></div>
 
 
-  <!-- ==============================
-       ROUTE PANEL
-  =============================== -->
+  <!-- ROUTE PANEL -->
 
   <div
     id="routePanel"
@@ -136,11 +107,7 @@
 
     <div class="route-header">
 
-      <div>
-        <b id="routeTitle">
-          🧭 Маршрут
-        </b>
-      </div>
+      <b>🧭 Маршрут</b>
 
       <button id="closeRoute">
         ×
@@ -149,155 +116,124 @@
     </div>
 
 
+    <div class="route-place" id="routePlace">
+      Выберите место
+    </div>
+
+
     <div class="route-options">
 
-      <div class="route-option">
+      <button
+        id="walkRoute"
+        class="route-option"
+      >
 
         <div class="route-icon">
           🚶
         </div>
 
-        <div>
-          <b>Пешком</b>
-
-          <div>
-            <span id="walkDistance">
-              —
-            </span>
-
-            ·
-
-            <span id="walkTime">
-              —
-            </span>
-          </div>
+        <div class="route-name">
+          Пешком
         </div>
 
-      </div>
+        <div
+          id="walkInfo"
+          class="route-info"
+        >
+          Расчёт...
+        </div>
+
+      </button>
 
 
-      <div class="route-option">
+      <button
+        id="carRoute"
+        class="route-option active"
+      >
 
         <div class="route-icon">
           🚗
         </div>
 
-        <div>
-          <b>На машине</b>
-
-          <div>
-            <span id="carDistance">
-              —
-            </span>
-
-            ·
-
-            <span id="carTime">
-              —
-            </span>
-          </div>
+        <div class="route-name">
+          На машине
         </div>
 
-      </div>
+        <div
+          id="carInfo"
+          class="route-info"
+        >
+          Расчёт...
+        </div>
+
+      </button>
 
     </div>
 
-  </div>
 
+    <button
+      id="openNavigation"
+      class="navigation-button"
+    >
+      🧭 Начать навигацию
+    </button>
+
+  </div>
 
 </main>
 
 
-<!-- ==============================
-     PLACE MODAL
-=============================== -->
+<!-- PLACE MODAL -->
 
 <div
-  id="modal"
+  id="placeModal"
+  class="modal hidden"
+>
+
+  <div class="place-card">
+
+    <button
+      id="closePlace"
+      class="close"
+    >
+      ×
+    </button>
+
+    <div id="placeContent"></div>
+
+  </div>
+
+</div>
+
+
+<!-- NOTE MODAL -->
+
+<div
+  id="noteModal"
   class="modal hidden"
 >
 
   <div class="modal-card">
 
     <button
-      id="closeModal"
+      id="closeNote"
       class="close"
     >
       ×
     </button>
 
-
-    <h2 id="modalTitle">
-      Место
+    <h2>
+      📝 Заметка
     </h2>
 
+    <textarea
+      id="note"
+      maxlength="2000"
+      placeholder="Напиши заметку об этом месте..."
+    ></textarea>
 
-    <p
-      id="modalAddress"
-      class="modal-address"
-    ></p>
-
-
-    <!-- STATUS -->
-
-    <div class="sale-section">
-
-      <p>
-        Статус продажи:
-      </p>
-
-
-      <div class="sale-buttons">
-
-        <button
-          id="soldYes"
-          class="sold-yes"
-        >
-          + Продал
-        </button>
-
-
-        <button
-          id="soldNo"
-          class="sold-no"
-        >
-          − Не продал
-        </button>
-
-      </div>
-
-    </div>
-
-
-    <!-- NOTE -->
-
-    <div class="note-section">
-
-      <p>
-        📝 Заметка
-      </p>
-
-      <textarea
-        id="note"
-        maxlength="2000"
-        placeholder="Напиши заметку об этом месте..."
-      ></textarea>
-
-
-      <button id="saveNote">
-        💾 Сохранить заметку
-      </button>
-
-    </div>
-
-
-    <!-- ROUTE -->
-
-    <button
-      id="routeBtn"
-      class="route-button"
-    >
-      🧭 Построить маршрут
+    <button id="saveNote">
+      💾 Сохранить заметку
     </button>
 
   </div>
@@ -305,18 +241,15 @@
 </div>
 
 
-<!-- ==============================
-     SCRIPTS
-=============================== -->
-
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://api-maps.yandex.ru/2.1/?apikey=301fa25b-27ad-466b-b7bf-53d28d2422d4&lang=ru_RU"></script><script src="js/config.js"></script>
 
-<script src="js/config.js"></script>
+<script>
+  const yandexScript = document.currentScript.previousElementSibling;
+</script>
 
 <script src="js/app.js"></script>
 
 </body>
-
 </html>
